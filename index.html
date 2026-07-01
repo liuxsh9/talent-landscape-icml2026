@@ -464,6 +464,18 @@
     }
 
     const esc = (value) => String(value ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    // PDT (UTC-7) → KST (UTC+9), +16h, handles day rollover
+    function pdtToKST(tb) {
+      return tb.replace(/^(\w+),\s+(\w+)\s+(\d+),\s+(\d+):(\d+)-(\d+):(\d+)\s+PDT$/, (_, dow, mon, day, h1, m1, h2, m2) => {
+        const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+        const MONTHS = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+        const kh1 = (+h1 + 16) % 24, d1 = Math.floor((+h1 + 16) / 24);
+        const kh2 = (+h2 + 16) % 24;
+        const base = new Date(2026, MONTHS[mon], +day + d1);
+        const fmt = (h, m) => String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+        return `${DAYS[base.getDay()]}, ${mon} ${base.getDate()}, ${fmt(kh1, +m1)}-${fmt(kh2, +m2)} KST`;
+      });
+    }
     const text = (value) => String(value ?? "").toLowerCase();
     const validUrl = (url) => /^https?:\/\//.test(String(url || ""));
 
@@ -494,7 +506,7 @@
       const rows = DATA.tasks.filter(taskMatches);
       document.getElementById("dispatchBody").innerHTML = rows.map(t => `
         <tr>
-          <td class="session-cell" data-label="时间">${esc(t.timeBlock)}</td>
+          <td class="session-cell" data-label="时间">${esc(pdtToKST(t.timeBlock))}</td>
           <td data-label="Session">${esc(t.session)}</td>
           <td data-label="位置">${esc(t.location)}</td>
           <td data-label="优先级">${pill(t.priority)}</td>
@@ -519,7 +531,7 @@
       grid.style.gridTemplateColumns = "190px repeat(" + Math.max(sessions.length, 1) + ", minmax(190px, 1fr))";
       let html = '<div class="cal-head">Time</div>' + sessions.map(s => '<div class="cal-head">' + esc(s) + '</div>').join("");
       for (const tb of timeBlocks) {
-        html += '<div class="cal-time">' + esc(tb) + '</div>';
+        html += '<div class="cal-time">' + esc(pdtToKST(tb)) + '</div>';
         for (const session of sessions) {
           const cell = visibleTasks.filter(t => t.timeBlock === tb && t.session === session);
           html += '<div class="cal-cell">' + cell.map(t => `
@@ -537,7 +549,7 @@
       for (const tb of timeBlocks) {
         const items = visibleTasks.filter(t => t.timeBlock === tb);
         if (!items.length) continue;
-        ah += '<div class="agenda-block"><div class="agenda-time">' + esc(tb) +
+        ah += '<div class="agenda-block"><div class="agenda-time">' + esc(pdtToKST(tb)) +
               ' <span class="agenda-count">' + items.length + '</span></div>';
         for (const t of items) {
           ah += `
@@ -557,7 +569,7 @@
       const rows = DATA.staffing.filter(r => (!state.time || r.timeBlock === state.time));
       document.getElementById("staffingGrid").innerHTML = rows.map(r => `
         <article class="staff-card">
-          <h3>${esc(r.timeBlock)}</h3>
+          <h3>${esc(pdtToKST(r.timeBlock))}</h3>
           <div class="numbers">
             <div class="num"><b>${r.total}</b><span>Total</span></div>
             <div class="num"><b>${r.p0}</b><span>P0</span></div>
@@ -644,7 +656,7 @@
     function closeDrawer() { document.body.classList.remove("drawer-open"); }
 
     function fillFilters() {
-      document.getElementById("time").innerHTML = '<option value="">All time blocks</option>' + DATA.timeBlocks.map(t => '<option>' + esc(t) + '</option>').join("");
+      document.getElementById("time").innerHTML = '<option value="">All time blocks</option>' + DATA.timeBlocks.map(t => '<option value="' + esc(t) + '">' + esc(pdtToKST(t)) + '</option>').join("");
       document.getElementById("session").innerHTML = '<option value="">All sessions</option>' + DATA.sessions.map(s => '<option>' + esc(s) + '</option>').join("");
     }
 
